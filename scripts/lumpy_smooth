@@ -284,20 +284,22 @@ for SAMPLE_CSV in ${OPTS[@]:$((OPTIND - 1))}; do
     fi
 done
 
-if [[ "$NAME" == "" ]]; then
-    vcf=$OUTDIR/$ID_LIST
-    vcf+="vcf"
-else
-    vcf=$OUTDIR/${NAME}.vcf
-fi
+type svtyper >/dev/null 2>&1 || { 
+    echo >&2 "svtyper not found. not genotyping"; 
+    if [[ "$NAME" == "" ]]; then
+        vcf=$OUTDIR/$ID_LIST
+        vcf+="vcf"
+    else
+        vcf=$OUTDIR/${NAME}.vcf
+    fi
+    set -x
+    eval $GLOBAL_LUMPY > $vcf
+    exit
+} 
 
-set -x
-eval $GLOBAL_LUMPY > $vcf
-
-type svtyper >/dev/null 2>&1 || { echo >&2 "svtyper not found. not genotyping"; exit 0; }
 echo >&2 "genotyping with svtyper ..."
 bams=$(echo "$BAMS" | sed -e 's/\\n/,/g')
 
 set -x
-
-bash $LUMPY_HOME/scripts/par-svtyper.sh $vcf $bams | bgzip -@ 5 -c > $OUTDIR/$(basename $vcf .vcf).svtyped.vcf.gz
+eval $GLOBAL_LUMPY | svtyper -B $bams | bgzip -@ 5 -c > $OUTDIR/$(basename $vcf .vcf).svtyped.vcf.gz
+tabix $OUTDIR/$(basename $vcf .vcf).svtyped.vcf.gz
