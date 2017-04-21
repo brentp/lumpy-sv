@@ -301,5 +301,5 @@ echo >&2 "genotyping with svtyper ..."
 bams=$(echo "$BAMS" | sed -e 's/\\n/,/g')
 
 set -x
-eval $GLOBAL_LUMPY | svtyper -B $bams | bcftools view -a -c 1 -O z -o $OUTDIR/$(basename $vcf .vcf).svtyped.vcf.gz
+eval $GLOBAL_LUMPY | svtyper --max_reads 600 -B $bams | bcftools view -a -c 1 -O z -o $OUTDIR/$(basename $vcf .vcf).svtyped.vcf.gz
 tabix $OUTDIR/$(basename $vcf .vcf).svtyped.vcf.gz
