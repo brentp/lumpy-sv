@@ -121,6 +121,7 @@ BAM_PREP()
     else
         ID=`$SAMTOOLS view -H $BAM | grep "^@RG" | grep -oP "SM:[^\s]*" | cut -d":" -f2 | sort -u`
     fi
+    ID=$(basename $BAM .bam)
 
     RG_NUM=`echo -e $ID | wc -l`
     if [ "$RG_NUM" -ne "1" ]; then
@@ -138,7 +139,7 @@ BAM_PREP()
     if [[ -f $(dirname $BAM)/$(basename $BAM .bam).disc.bam ]]; then
         if [[ $(realpath $(dirname $BAM)/$(basename $BAM .bam).disc.bam) != $(realpath $OUTDIR/$ID.disc.bam) ]]; then
             ln -sf $(dirname $BAM)/$(basename $BAM .bam).disc.bam $OUTDIR/$ID.disc.bam
-        fi
+       fi
     fi
     has_splitters=OK
     for f in "$OUTDIR/$ID.split.bam" "$OUTDIR/$ID.disc.bam"; do
@@ -193,6 +194,7 @@ GET_BAM_PARAMS () {
     else
         ID=`$SAMTOOLS view -H $BAM | grep "^@RG" | grep -oP "SM:[^\s]*" | cut -d":" -f2 | sort -u`
     fi
+    ID=$(basename $BAM .bam)
 
     RG_NUM=`echo -e $ID | wc -l`
     if [ "$RG_NUM" -ne "1" ]; then
@@ -286,18 +288,10 @@ done
 
 if [[ "$NAME" == "" ]]; then
     vcf=$OUTDIR/$ID_LIST
-    vcf+="vcf"
+    vcf+="vcf.gz"
 else
-    vcf=$OUTDIR/${NAME}.vcf
+    vcf=$OUTDIR/${NAME}.vcf.gz
 fi
 
 set -x
-eval $GLOBAL_LUMPY > $vcf
-
-type svtyper >/dev/null 2>&1 || { echo >&2 "svtyper not found. not genotyping"; exit 0; }
-echo >&2 "genotyping with svtyper ..."
-bams=$(echo "$BAMS" | sed -e 's/\\n/,/g')
-
-set -x
-
-bash $LUMPY_HOME/scripts/par-svtyper.sh $vcf $bams | bgzip -@ 5 -c > $OUTDIR/$(basename $vcf .vcf).svtyped.vcf.gz
+eval $GLOBAL_LUMPY | bgzip -c > $vcf
