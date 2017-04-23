@@ -115,19 +115,7 @@ BAM_PREP()
     set -e
     BAM=$1
 
-    ID=""
-    if [ "$(uname)" == "Darwin" ]; then
-        ID=`$SAMTOOLS view -H $BAM | grep "^@RG" | grep -o "SM:\w*" | cut -d":" -f2 | sort -u`
-    else
-        ID=`$SAMTOOLS view -H $BAM | grep "^@RG" | grep -oP "SM:[^\s]*" | cut -d":" -f2 | sort -u`
-    fi
     ID=$(basename $BAM .bam)
-
-    RG_NUM=`echo -e $ID | wc -l`
-    if [ "$RG_NUM" -ne "1" ]; then
-      echo "Does not support more than 1 readgroup. $RG_NUM found."
-      exit 1
-    fi
 
     # if they have .split and .disc then ln them to the expected location.
     if [[ -f $(dirname $BAM)/$(basename $BAM .bam).split.bam ]]; then
@@ -188,19 +176,7 @@ GET_BAM_PARAMS () {
         LOCAL_BREAK_SIZE=$3
     fi
 
-    ID=""
-    if [ "$(uname)" == "Darwin" ]; then
-        ID=`$SAMTOOLS view -H $BAM | grep "^@RG" | grep -o "SM:\w*" | cut -d":" -f2 | sort -u`
-    else
-        ID=`$SAMTOOLS view -H $BAM | grep "^@RG" | grep -oP "SM:[^\s]*" | cut -d":" -f2 | sort -u`
-    fi
     ID=$(basename $BAM .bam)
-
-    RG_NUM=`echo -e $ID | wc -l`
-    if [ "$RG_NUM" -ne "1" ]; then
-      echo "Does not support more than 1 readgroup. $RG_NUM found."
-      exit 1
-    fi
 
     ID_LIST+="$ID."
 
