@@ -269,5 +269,5 @@ else
     vcf=$OUTDIR/${NAME}.vcf.gz
 fi
 
-set -x
+set -xuo pipefail
 eval $GLOBAL_LUMPY | bgzip -c > $vcf
