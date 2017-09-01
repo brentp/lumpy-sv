@@ -5,6 +5,7 @@ export EXCLUDE=""
 export OUTDIR="./"
 export GLOBAL_BREAK_SIZE=250
 export THREADS=1
+export REFERENCE=""
 export ID_LIST=""
 export NAME=""
 
@@ -25,6 +26,7 @@ usage()
     -o      Output directory ($OUTDIR)
     -n      Optional basepath for VCF. Will be used as \${OUTDIR}/\${NAME}.vcf
     -t      Threads ($THREADS)
+    -R      Path to reference fasta. Required for CRAM.
 
     CNV options:
     -b      Breakpoint window size ($GLOBAL_BREAK_SIZE)
@@ -44,7 +46,7 @@ EOF
     #exit
 #fi
 
-while getopts "h L:x:o:b:n:t:S:" OPTION; do
+while getopts "h L:R:x:o:b:n:t:S:" OPTION; do
 case $OPTION in
     h)
         usage
@@ -53,6 +55,9 @@ case $OPTION in
     x)
         EXCLUDE="-x "
         EXCLUDE+=$OPTARG
+        ;;
+    R)
+        REFERENCE="-T $OPTARG"
         ;;
     n)
         NAME=$OPTARG
@@ -109,24 +114,40 @@ if [ "$BREAK" -eq "1" ]; then
     exit 1;
 fi
 
+bn() {
+    f=$1
+    last=$(basename $f .bam)
+    last=$(basename $last .cram)
+    echo "$last"
+}
+export -f bn
+
+fp() {
+    f=$(realpath $1)
+    last=$(bn $f)
+    d=$(dirname $f)
+    echo "$d/$last"
+}
+export -f fp
+
 
 BAM_PREP()
 {
     set -e
     BAM=$1
 
-    ID=$(basename $BAM .bam)
+    ID=$(bn $BAM)
 
     # if they have .split and .disc then ln them to the expected location.
-    if [[ -f $(dirname $BAM)/$(basename $BAM .bam).split.bam ]]; then
-        if [[ $(realpath $(dirname $BAM)/$(basename $BAM .bam).split.bam) != $(realpath $OUTDIR/$ID.split.bam) ]]; then
-            ln -sf $(dirname $BAM)/$(basename $BAM .bam).split.bam $OUTDIR/$ID.split.bam
+    if [[ -f $(fp $BAM).split.bam ]]; then
+        if [[ $(fp $BAM).split.bam != $(realpath $OUTDIR/$ID.split.bam) ]]; then
+            ln -sf $(fp $BAM).split.bam $OUTDIR/$ID.split.bam
         fi
     fi
 
-    if [[ -f $(dirname $BAM)/$(basename $BAM .bam).disc.bam ]]; then
-        if [[ $(realpath $(dirname $BAM)/$(basename $BAM .bam).disc.bam) != $(realpath $OUTDIR/$ID.disc.bam) ]]; then
-            ln -sf $(dirname $BAM)/$(basename $BAM .bam).disc.bam $OUTDIR/$ID.disc.bam
+    if [[ -f $(fp $BAM).disc.bam ]]; then
+        if [[ $(fp $BAM) != $(realpath $OUTDIR/$ID.disc.bam) ]]; then
+            ln -sf $(fp $BAM).disc.bam $OUTDIR/$ID.disc.bam
        fi
     fi
     has_splitters=OK
@@ -134,14 +155,14 @@ BAM_PREP()
         [ -e "$f" ] || has_splitters=NO
     done
     if [[ "$has_splitters" == "OK" ]]; then
-        ( echo "using existing splitters: $(dirname $BAM)/$(basename $BAM .bam).{disc,split}.bam" ; )
+        ( echo "using existing splitters: $(fp $BAM).{disc,split}.bam" ; )
     else
         #>&2 echo "running lumpy_filter for: $BAM"
         set -e
         $LUMPY_HOME/bin/lumpy_filter $BAM $OUTDIR/$ID.split.bam $OUTDIR/$ID.disc.bam
     fi
 
-    READ_LENGTH=`$SAMTOOLS view $BAM \
+    READ_LENGTH=`$SAMTOOLS view $REFERENCE $BAM \
     | head -n 10000 \
     | gawk '
         BEGIN { MAX_LEN=0 } 
@@ -151,7 +172,7 @@ BAM_PREP()
 
     echo $READ_LENGTH
 
-    $SAMTOOLS view $BAM \
+    $SAMTOOLS view $REFERENCE $BAM \
         | tail -n+100000 \
         | $LUMPY_HOME/scripts/pairend_distro.py \
         -r $READ_LENGTH \
@@ -176,7 +197,7 @@ GET_BAM_PARAMS () {
         LOCAL_BREAK_SIZE=$3
     fi
 
-    ID=$(basename $BAM .bam)
+    ID=$(bn $BAM)
 
     ID_LIST+="$ID."
 
@@ -203,7 +224,7 @@ GET_BAM_PARAMS () {
         DUP_BEDPE=$OUTDIR/$ID.dup.bedpe
     fi
 
-    READ_LENGTH=`$SAMTOOLS view $BAM \
+    READ_LENGTH=`$SAMTOOLS view $REFERENCE $BAM \
     | head -n 10000 \
     | gawk '
         BEGIN { MAX_LEN=0 } 
